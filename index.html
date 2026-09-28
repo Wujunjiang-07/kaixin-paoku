@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="format-detection" content="telephone=no">
-<title>南果梨快跑</title>
+<title>开心跑酷</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍐</text></svg>">
 <style>
   html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#9fd8ef;
@@ -66,7 +66,7 @@
 
 <div id="menu" class="overlay">
   <div class="panel">
-    <h1 class="title">南果梨快跑</h1>
+    <h1 class="title">开心跑酷</h1>
     <p class="sub">真人出镜 · 手握双梨 · 像地铁跑酷一样狂奔</p>
     <div id="charRow">
       <button class="charBtn" data-c="boy">🧢 原版小哥</button>
@@ -198,7 +198,7 @@ function bgmPause(){
 /* ================= 状态 ================= */
 let mode='menu', paused=false;
 let dist=0, speed=0, pearsGot=0, tGlobal=0;
-let shakeT=0, flashT=0, overT=0, startT=0, nextMile=250, newBest=false, dustT=0;
+let shakeT=0, flashT=0, overT=0, startT=0, nextMile=250, newBest=false, lastStep=0;
 let best=0;
 try{ best = +(localStorage.getItem('ngl_best')||0); }catch(e){}
 
@@ -320,8 +320,12 @@ function update(dt){
   player.x += ((player.lane-1)-player.x)*Math.min(1,dt*11);
   player.phase += dt*(6+speed*0.55);
 
-  dustT-=dt;
-  if(dustT<=0 && !player.air){ dustT=0.14; puff(xA(player.x,0)-R(0,14), GY, 1); }
+  // 换腿落地的交替灰尘
+  const stepNow=Math.floor(player.phase/Math.PI);
+  if(stepNow!==lastStep){
+    lastStep=stepNow;
+    if(!player.air) puff(xA(player.x,0)+(stepNow%2?1:-1)*LW*0.14, GY, 2);
+  }
 
   checkHits();
   if(dist>nextMile){
@@ -501,51 +505,92 @@ function drawTrain(o){
   const fx1=xF-hw*sF, fx2=xF+hw*sF, fy1=yF-hpx*sF, fy2=yF;
   const bx1=xB-hw*sB, bx2=xB+hw*sB, by1=yB-hpx*sB, by2=yB;
   drawShadow(xF, yF, hw*sF*1.05);
-  // 车顶
-  ctx.fillStyle='#a9d8b4';
+
+  // ---- 车顶（受光亮面）+ 空调箱
+  const tg=ctx.createLinearGradient(0,fy1,0,by1);
+  tg.addColorStop(0,'#cfead8'); tg.addColorStop(1,'#8cc2a0');
+  ctx.fillStyle=tg;
   poly(ctx,[[fx1,fy1],[fx2,fy1],[bx2,by1],[bx1,by1]]); ctx.fill();
-  // 侧身（朝屏幕中心的一侧）
+  const acz=zF+len*0.35, acs=sc(acz), acx=xA(o.lane-1,acz), acy=yA(acz);
+  ctx.fillStyle='#79b88d';
+  rr(ctx, acx-0.22*hw*acs, acy-hpx*acs, 0.44*hw*acs, 0.16*U*acs, 0.02*U*acs); ctx.fill();
+
+  // ---- 侧身（朝屏幕中心的一侧，渐变+车窗反光+侧裙+车轮）
   const side = o.lane===1 ? 0 : (o.lane===0 ? 1 : -1);
   if(side!==0){
     const sx = side>0 ? fx2 : fx1;
     const sxB = side>0 ? bx2 : bx1;
-    ctx.fillStyle='#2a7a42';
+    const sg=ctx.createLinearGradient(sx,fy1,sxB,by1);
+    sg.addColorStop(0,'#2f8a48'); sg.addColorStop(1,'#1d5a32');
+    ctx.fillStyle=sg;
     poly(ctx,[[sx,fy1],[sx,fy2],[sxB,by2],[sxB,by1]]); ctx.fill();
-    // 侧窗
-    ctx.fillStyle='#cfe9ff';
     const n=Math.floor(len/1.4);
     for(let i=0;i<n;i++){
       const zt=o.z+0.7+i*1.4;
       if(zt<0.2) continue;
       const sW=sc(zt), xW=xA(o.lane-1,zt)+(side>0?hw*0.5*sW:-hw*0.5*sW), yW=yA(zt);
+      ctx.fillStyle='#cfe9ff';
       rr(ctx, xW-0.16*U*sW, yW-1.32*U*sW, 0.32*U*sW, 0.38*U*sW, 0.05*U*sW); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.4)';
+      rr(ctx, xW-0.10*U*sW, yW-1.30*U*sW, 0.09*U*sW, 0.34*U*sW, 0.02*U*sW); ctx.fill();
+    }
+    ctx.fillStyle='#173321';
+    poly(ctx,[[sx,fy2-0.13*U*sF],[sxB,by2-0.13*U*sB],[sxB,by2],[sx,fy2]]); ctx.fill();
+    for(let i=0;i<3;i++){
+      const zt=o.z+0.9+i*2.1;
+      if(zt<0.2||zt>zB-0.3) continue;
+      const sW=sc(zt), xW=xA(o.lane-1,zt)+(side>0?hw*0.58*sW:-hw*0.58*sW), yW=yA(zt);
+      ctx.fillStyle='#0e130e';
+      ctx.beginPath(); ctx.arc(xW, yW-0.07*U*sW, 0.10*U*sW, 0, 7); ctx.fill();
+      ctx.fillStyle='#455045';
+      ctx.beginPath(); ctx.arc(xW-0.035*U*sW, yW-0.10*U*sW, 0.04*U*sW, 0, 7); ctx.fill();
     }
   }
-  // 车头
+
+  // ---- 车头（圆角实体：渐变+描边+顶帽+LED+风挡反光+大灯+排障器+前轮）
+  const fw=fx2-fx1, fh=fy2-fy1;
   const fg=ctx.createLinearGradient(fx1,fy1,fx2,fy2);
-  fg.addColorStop(0,'#3f9e58'); fg.addColorStop(1,'#2e7f45');
-  ctx.fillStyle=fg; ctx.fillRect(fx1,fy1,fx2-fx1,fy2-fy1);
-  // 车头窗
-  ctx.fillStyle='#173a2a';
-  rr(ctx, fx1+(fx2-fx1)*0.12, fy1+(fy2-fy1)*0.10, (fx2-fx1)*0.76, (fy2-fy1)*0.30, (fx2-fx1)*0.05); ctx.fill();
-  // 白色腰带 + 车号
-  ctx.fillStyle='rgba(255,255,255,.85)';
-  ctx.fillRect(fx1, fy1+(fy2-fy1)*0.46, fx2-fx1, Math.max(2,(fy2-fy1)*0.05));
+  fg.addColorStop(0,'#54bd72'); fg.addColorStop(0.55,'#35904d'); fg.addColorStop(1,'#1f5f33');
+  ctx.fillStyle=fg;
+  rr(ctx, fx1, fy1, fw, fh, fw*0.11); ctx.fill();
+  ctx.strokeStyle='#14301d'; ctx.lineWidth=Math.max(1,fw*0.016);
+  rr(ctx, fx1, fy1, fw, fh, fw*0.11); ctx.stroke();
+  ctx.fillStyle='#e2f2e7';
+  rr(ctx, fx1+fw*0.05, fy1+fh*0.025, fw*0.90, fh*0.09, fw*0.045); ctx.fill();
+  ctx.fillStyle='#0f130f';
+  rr(ctx, fx1+fw*0.27, fy1+fh*0.05, fw*0.46, fh*0.095, fw*0.02); ctx.fill();
   if(sF>0.35){
-    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='900 '+(0.13*U*sF)+'px "Microsoft YaHei",sans-serif';
-    ctx.fillText('南果梨号', xF, fy1+(fy2-fy1)*0.55);
-    ctx.fillStyle='#e8d44d';
-    ctx.font='900 '+(0.10*U*sF)+'px "Microsoft YaHei",sans-serif';
-    ctx.fillText('NGL·快跑线', xF, fy1+(fy2-fy1)*0.80);
+    ctx.fillStyle='#ffd54a'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='900 '+(0.11*U*sF)+'px "Microsoft YaHei",sans-serif';
+    ctx.fillText('开心跑酷号', xF, fy1+fh*0.098);
   }
-  // 大灯
-  ctx.fillStyle='#ffe9a0';
-  ctx.beginPath(); ctx.arc(fx1+(fx2-fx1)*0.22, yF-0.16*U*sF, 0.055*U*sF, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(fx2-(fx2-fx1)*0.22, yF-0.16*U*sF, 0.055*U*sF, 0, 7); ctx.fill();
-  // 底盘
-  ctx.fillStyle='#23301f';
-  ctx.fillRect(fx1, yF-0.07*U*sF, fx2-fx1, 0.07*U*sF);
+  ctx.fillStyle='#123324';
+  rr(ctx, fx1+fw*0.10, fy1+fh*0.16, fw*0.80, fh*0.26, fw*0.06); ctx.fill();
+  ctx.fillStyle='rgba(215,242,255,.42)';
+  poly(ctx,[[fx1+fw*0.17,fy1+fh*0.18],[fx1+fw*0.40,fy1+fh*0.18],[fx1+fw*0.24,fy1+fh*0.40],[fx1+fw*0.13,fy1+fh*0.31]]); ctx.fill();
+  ctx.strokeStyle='rgba(10,20,12,.8)'; ctx.lineWidth=Math.max(1,fw*0.012);
+  ctx.beginPath(); ctx.moveTo(fx1+fw*0.32,fy1+fh*0.42); ctx.lineTo(fx1+fw*0.44,fy1+fh*0.30); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  rr(ctx, fx1+fw*0.03, fy1+fh*0.46, fw*0.94, Math.max(2,fh*0.05), fw*0.01); ctx.fill();
+  if(sF>0.4){
+    ctx.fillStyle='#e8d44d'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='900 '+(0.095*U*sF)+'px "Microsoft YaHei",sans-serif';
+    ctx.fillText('K·P 线', xF, fy1+fh*0.75);
+  }
+  for(const s of[-1,1]){
+    const lx=xF+s*fw*0.27, ly=yF-fh*0.17;
+    const lg=ctx.createRadialGradient(lx,ly,1,lx,ly,0.12*U*sF);
+    lg.addColorStop(0,'rgba(255,242,190,.95)'); lg.addColorStop(1,'rgba(255,242,190,0)');
+    ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(lx,ly,0.12*U*sF,0,7); ctx.fill();
+    ctx.fillStyle='#fff8dc'; ctx.beginPath(); ctx.arc(lx,ly,0.045*U*sF,0,7); ctx.fill();
+  }
+  ctx.fillStyle='#16240f';
+  rr(ctx, fx1+fw*0.02, yF-fh*0.10, fw*0.96, fh*0.10, fw*0.02); ctx.fill();
+  ctx.fillStyle='#2a3a2c';
+  poly(ctx,[[xF-fw*0.20,yF],[xF+fw*0.20,yF],[xF+fw*0.11,yF-0.11*U*sF],[xF-fw*0.11,yF-0.11*U*sF]]); ctx.fill();
+  ctx.fillStyle='#0b100b';
+  ctx.beginPath(); ctx.arc(fx1+fw*0.20, yF-0.015*U*sF, 0.085*U*sF, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.arc(fx2-fw*0.20, yF-0.015*U*sF, 0.085*U*sF, 0, 7); ctx.fill();
 }
 function drawPearShape(g,x,y,r,rot,face){
   g.save(); g.translate(x,y); g.rotate(rot||0);
@@ -775,7 +820,7 @@ function drawPhotoPlayer(px,pyG){
   const legsHip=()=>ctx.drawImage(img,0,HIP*imgH-4,imgW,imgH-HIP*imgH+4,
       -drawW/2-pivX,-4*su,drawW,drawH-HIP*drawH+4*su);
   const topHip=()=>{ if(useGirl) ctx.drawImage(ch.img,0,0,ch.img.width,ch.img.height*srcFrac,-gW/2,-gH,gW,gH+6*su);
-    else ctx.drawImage(img,0,0,imgW,HIP*imgH+4,-drawW/2-pivX,-drawH,drawW,HIP*drawH+4*su); };
+    else ctx.drawImage(img,0,0,imgW,HIP*imgH+4,-drawW/2-pivX,-HIP*drawH-4*su,drawW,HIP*drawH+4*su); };
   // 手里的南果梨（hipFrame=true 表示当前原点在接缝）
   const pearPair=(hipFrame)=>{
     const wob=Math.sin(player.phase)*0.15;
@@ -784,8 +829,9 @@ function drawPhotoPlayer(px,pyG){
       drawPearShape(ctx,bx+gW*0.30,by+gH*0.97,drawH*0.105,wob-0.1,true);
       drawPearShape(ctx,bx+gW*0.70,by+gH*0.97,drawH*0.088,wob+0.15,true);
     }else{
-      drawPearShape(ctx,-drawW/2+ANCH.handR.x*drawW,-drawH+ANCH.handR.y*drawH,drawH*0.115,wob-0.1,true);
-      drawPearShape(ctx,-drawW/2+ANCH.handL.x*drawW,-drawH+ANCH.handL.y*drawH,drawH*0.058,wob+0.15,true);
+      const ox=(hipFrame?pivX:0), oy=(hipFrame?seamY:0);
+      drawPearShape(ctx,-drawW/2+ANCH.handR.x*drawW-ox,-drawH+ANCH.handR.y*drawH-oy,drawH*0.115,wob-0.1,true);
+      drawPearShape(ctx,-drawW/2+ANCH.handL.x*drawW-ox,-drawH+ANCH.handL.y*drawH-oy,drawH*0.058,wob+0.15,true);
     }
   };
 
@@ -807,21 +853,22 @@ function drawPhotoPlayer(px,pyG){
     ctx.rotate(Math.sin(tGlobal*1.4)*0.04);
     legsAbs(); topAbs(); pearPair(false);
   }else{
-    // 2D纸片人跑法：上半身/下半身从腰部剪开，各自摆动且故意不同步
+    // 2D纸片人真跑：腿部块左右镜像交替（换腿），上半身轻晃不撕裂
     if(speed>14){ // 高速残影
       ctx.globalAlpha=0.15;
       legsAbs(); topAbs();
       ctx.globalAlpha=1;
     }
+    const flip = Math.cos(player.phase)>=0 ? 1 : -1;
     ctx.save();
     ctx.translate(pivX,seamY);
-    ctx.rotate(Math.sin(player.phase)*0.30);
-    ctx.scale(1+0.04*Math.sin(player.phase*2),1);
+    ctx.rotate(Math.sin(player.phase)*0.15);
+    ctx.scale(flip*(1+0.03*Math.sin(player.phase*2)),1);
     legsHip();
     ctx.restore();
     ctx.save();
     ctx.translate(pivX,seamY);
-    ctx.rotate(Math.sin(player.phase*0.82+2.0)*0.10+lean*0.5);
+    ctx.rotate(Math.sin(player.phase*0.82+2.0)*(useGirl?0.06:0.03)+lean*0.4);
     topHip(); pearPair(true);
     ctx.restore();
   }
@@ -1026,6 +1073,7 @@ window.__ngl={
   crash(){ if(mode==='play') crash(); },
   tick(n){ for(let i=0;i<(n||1);i++) update(1/60); render(); },
   steer(l){ player.lane=clamp(l,0,2); },
+  train(z){ if(mode==='play'){ [0,1,2].forEach(l=>obstacles.push({type:'train',lane:l,z:z||26,len:6.5})); } },
   peek(){
     const cs=[...coins].sort((a,b)=>a.z-b.z).slice(0,5).map(c=>({lane:c.lane,z:+c.z.toFixed(2)}));
     const os=obstacles.filter(o=>o.z<12).map(o=>({t:o.type,lane:o.lane,z:+o.z.toFixed(2)}));
