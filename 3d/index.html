@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>开心跑酷 3D</title>
+<meta name="theme-color" content="#7ec3ee">
+<script>window.__errs=[];window.addEventListener("error",e=>{window.__errs.push(String(e.message||e.type)+" @ "+String(e.filename||"").slice(-40)+":"+e.lineno);},true);</script>
+<style>
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#9fd8ef;
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;user-select:none;-webkit-user-select:none;}
+  #c3d{position:fixed;inset:0;display:block;touch-action:none;}
+  .overlay{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;z-index:10;pointer-events:none;}
+  #menu{justify-content:flex-start;padding-top:max(4vh,16px);}
+  #over,#pause{justify-content:center;}
+  .panel{pointer-events:auto;background:rgba(255,252,245,.94);border-radius:24px;padding:24px 36px 26px;
+    box-shadow:0 12px 40px rgba(30,60,25,.28);text-align:center;max-width:min(88vw,520px);}
+  .hidden{display:none!important;}
+  h1.title{margin:0;font-size:clamp(40px,8vw,62px);font-weight:900;letter-spacing:6px;line-height:1.1;
+    background:linear-gradient(135deg,#f7962a 5%,#e5572f 45%,#2e9e4f 95%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 4px 5px rgba(60,90,40,.25));}
+  .sub{margin:8px 0 2px;font-size:clamp(13px,2.4vw,16px);color:#6b7a5e;font-weight:600;}
+  button.big{pointer-events:auto;margin-top:14px;font-family:inherit;font-size:clamp(19px,3.4vw,23px);font-weight:700;
+    color:#fff;background:linear-gradient(180deg,#3cb355,#278a3f);border:none;border-radius:999px;
+    padding:12px 48px;cursor:pointer;box-shadow:0 6px 0 #1d6b30,0 10px 18px rgba(0,0,0,.2);letter-spacing:2px;}
+  button.big:active{transform:translateY(4px);box-shadow:0 2px 0 #1d6b30;}
+  .hint{margin:14px 0 0;font-size:13px;color:#7d8878;line-height:2;}
+  kbd{display:inline-block;min-width:22px;padding:2px 7px;margin:0 2px;background:#f2efe6;border:1px solid #cfc9b8;
+    border-bottom-width:3px;border-radius:6px;font-family:inherit;font-size:12px;color:#4c554a;font-weight:700;}
+  .best{margin:10px 0 0;font-size:14px;color:#b07b28;font-weight:700;}
+  h2.otitle{margin:0 0 8px;font-size:clamp(28px,5vw,38px);color:#d84315;font-weight:900;letter-spacing:3px;}
+  .stats{margin:0;font-size:clamp(16px,3vw,20px);color:#3c4a38;font-weight:700;line-height:1.7;}
+  .nb{margin:8px 0 0;font-size:20px;font-weight:900;color:#e8a020;letter-spacing:2px;animation:pop .5s ease infinite alternate;}
+  @keyframes pop{from{transform:scale(1)}to{transform:scale(1.12)}}
+  .ghostBtn{pointer-events:auto;margin-top:10px;font-family:inherit;font-size:15px;font-weight:700;color:#6b7a5e;
+    background:none;border:2px solid #d8d2c0;border-radius:999px;padding:7px 22px;cursor:pointer;}
+  .ghostBtn:hover{background:#f2efe6;}
+  .pausebox{pointer-events:auto;background:rgba(20,30,18,.72);color:#fff;border-radius:18px;padding:22px 44px;
+    font-size:26px;font-weight:800;letter-spacing:4px;text-align:center;line-height:1.8;}
+  .pausebox small{font-size:14px;font-weight:400;opacity:.8;letter-spacing:1px;}
+  #hud{position:fixed;top:12px;left:12px;right:12px;display:flex;gap:10px;align-items:center;z-index:5;pointer-events:none;}
+  .chip{background:rgba(18,26,16,.55);color:#fff;padding:6px 16px;border-radius:999px;font-size:clamp(15px,2.6vw,19px);
+    font-weight:800;display:flex;align-items:center;gap:7px;letter-spacing:1px;backdrop-filter:blur(3px);}
+  #comboChip{background:rgba(46,158,79,.7);display:none;}
+  .ctlBtn{pointer-events:auto;flex:0 0 auto;background:rgba(18,26,16,.55);border:none;color:#fff;
+    font-size:19px;border-radius:50%;width:42px;height:42px;cursor:pointer;backdrop-filter:blur(3px);}
+  #pauseBtn{margin-left:auto;}
+  #muteBtn{margin-left:8px;}
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;
+    color:#2e6b3a;z-index:99;background:#9fd8ef;letter-spacing:3px;}
+  a.link2d{pointer-events:auto;color:#8a9a7e;font-size:13px;margin-top:12px;}
+</style>
+</head>
+<body>
+<canvas id="c3d"></canvas>
+<div id="boot">🍐 加载中…</div>
+
+<div id="hud" class="hidden">
+  <div class="chip">🏃 <span id="distV">0</span> 米</div>
+  <div class="chip">🍐 <span id="pearV">0</span></div>
+  <div class="chip" id="comboChip">连击 x<span id="comboV">0</span></div>
+  <button id="pauseBtn" class="ctlBtn" title="暂停">⏸</button>
+  <button id="muteBtn" class="ctlBtn" title="声音开关">🔊</button>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1 class="title">开心跑酷 3D</h1>
+    <p class="sub">真实 3D 角色 · 背后视角 · 越跑越快</p>
+    <button id="startBtn" class="big">开始奔跑 🍐</button>
+    <p class="hint">
+      <kbd>←</kbd><kbd>→</kbd> 变道 　<kbd>↑</kbd> 跳跃 　<kbd>↓</kbd> 滑铲<br>
+      手机：左右滑动变道 · 上滑跳 · 下滑铲
+    </p>
+    <p class="best" id="bestLine"></p>
+    <a class="link2d" href="../index.html">← 经典 2D 版</a>
+  </div>
+</div>
+
+<div id="over" class="overlay hidden">
+  <div class="panel">
+    <h2 class="otitle">哎呀，撞上了！</h2>
+    <p class="stats" id="statLine"></p>
+    <p class="nb hidden" id="newBest">🏆 新纪录！</p>
+    <button id="retryBtn" class="big">再来一次</button><br>
+    <button id="homeBtn" class="ghostBtn">🏠 回到主页</button>
+  </div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <div class="pausebox">已暂停<br><small>按任意键 / 点击屏幕继续</small></div>
+</div>
+
+<script src="./lib/three.min.js"></script>
+<script src="./lib/GLTFLoader.js"></script>
+<script>
+window.addEventListener('error', e=>{ const b=document.getElementById('boot'); if(b) b.textContent='错误: '+e.message; });
+/* ================= 基础 ================= */
+const cv = document.getElementById('c3d');
+const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9fd8ef);
+scene.fog = new THREE.Fog(0x9fd8ef, 40, 110);
+
+const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 200);
+let W = 0, H = 0;
+function resize(){
+  W = innerWidth; H = innerHeight;
+  renderer.setSize(W, H);
+  camera.aspect = W / H;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+/* ================= 灯光 ================= */
+scene.add(new THREE.HemisphereLight(0xbfe3ff, 0x8a9a6a, 0.9));
+const sun = new THREE.DirectionalLight(0xfff2d8, 1.6);
+sun.position.set(-6, 12, -6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+sun.shadow.camera.far = 40;
+scene.add(sun);
+scene.add(sun.target);
+
+/* ================= 音效 ================= */
+let AC = null, muted = false;
+function ac(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return AC; }
+function tone(f0,f1,dur,type='sine',vol=0.15,delay=0){
+  if(muted) return; const a=ac(); if(!a) return;
+  if(a.state==='suspended') a.resume();
+  const t=a.currentTime+delay;
+  const o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t);
+  o.frequency.exponentialRampToValueAtTime(Math.max(f1,1),t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur+0.03);
+}
+const sndJump =()=>tone(250,540,0.15,'square',0.1);
+const sndSlide=()=>tone(320,110,0.2,'triangle',0.12);
+const sndCoin =()=>{tone(1046,1046,0.07,'sine',0.14); tone(1568,1568,0.12,'sine',0.14,0.07);};
+const sndCrash=()=>{tone(300,45,0.5,'sawtooth',0.22); tone(150,40,0.5,'square',0.18,0.03);};
+const sndUp   =()=>{tone(660,990,0.16,'triangle',0.13);};
+
+/* ================= 状态 ================= */
+let mode='menu', paused=false;
+let dist=0, speed=0, coinsGot=0, tGlobal=0;
+let combo=0, comboT=0, maxCombo=0;
+let shakeT=0, flashT=0, overT=0, startT=0, countdownT=0, runCried=false;
+let gapLeft=12, lastStep=0, nextMile=250;
+let best=0;
+try{ best = +(localStorage.getItem('kp3d_best')||0); }catch(e){}
+
+const player = { lane:1, x:0, y:0, vy:0, air:false, slideT:0 };
+const LANE_X=[-2.2,0,2.2];
+
+/* ================= 场景搭建 ================= */
+const world = new THREE.Group(); // 全部会向后移动的东西
+scene.add(world);
+
+// 地面
+{
+  const grass = new THREE.Mesh(new THREE.PlaneGeometry(200, 260), new THREE.MeshLambertMaterial({ color: 0x7cb95f }));
+  grass.rotation.x = -Math.PI/2; grass.position.set(0, -0.02, -60);
+  world.add(grass);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(8.2, 260), new THREE.MeshLambertMaterial({ color: 0x54585f }));
+  road.rotation.x = -Math.PI/2; road.position.set(0, 0, -60);
+  road.receiveShadow = true;
+  world.add(road);
+  // 人行道
+  for(const s of [-1,1]){
+    const walk = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 260), new THREE.MeshLambertMaterial({ color: 0xc9c3b6 }));
+    walk.rotation.x = -Math.PI/2; walk.position.set(s*5.4, 0.01, -60);
+    world.add(walk);
+  }
+  // 路缘
+  const curbM = new THREE.MeshLambertMaterial({ color: 0xe8e4da });
+  for(const s of [-1,1]){
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 260), curbM);
+    curb.position.set(s*4.1, 0.05, -60); world.add(curb);
+  }
+}
+
+// 车道虚线（循环滚动 → 速度感）
+const dashes = [];
+{
+  const dm = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  for(const lf of [-1.1, 1.1]){
+    for(let z=-150; z<18; z+=3.2){
+      const d = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 1.6), dm);
+      d.position.set(lf, 0.015, z);
+      world.add(d); dashes.push(d);
+    }
+  }
+}
+
+// 路旁景物（树/灯/楼/石球，循环滚动）
+const scenery = [];
+{
+  const trunkM = new THREE.MeshLambertMaterial({ color: 0x7a5230 });
+  const leafM  = new THREE.MeshLambertMaterial({ color: 0x4e8f3f });
+  const poleM  = new THREE.MeshLambertMaterial({ color: 0x6d7480 });
+  const ballM  = new THREE.MeshLambertMaterial({ color: 0xb8bcc0 });
+  const winM   = new THREE.MeshLambertMaterial({ color: 0x9fc4dd, emissive: 0x1a2a3a });
+  function makeTree(g){
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.13,1.1), trunkM); tr.position.y=0.55; g.add(tr);
+    const le = new THREE.Mesh(new THREE.SphereGeometry(0.75,10,8), leafM); le.position.y=1.6; le.scale.y=1.25; g.add(le);
+  }
+  function makeLamp(g){
+    const po = new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.07,3.4), poleM); po.position.y=1.7; g.add(po);
+    const li = new THREE.Mesh(new THREE.SphereGeometry(0.16,8,6), new THREE.MeshLambertMaterial({ color: 0xffe9a8 }));
+    li.position.set(0.22,3.4,0); g.add(li);
+  }
+  function makeBall(g){
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.42,12,10), ballM); b.position.y=0.42; g.add(b);
+  }
+  function makeBuilding(g){
+    const h = 3 + Math.random()*7, w = 2.2+Math.random()*2.4;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), new THREE.MeshLambertMaterial({ color: [0xb6cfe0,0xa9c4d8,0xc2d7e6][Math.floor(Math.random()*3)] }));
+    b.position.y = h/2; g.add(b);
+    for(let i=0;i<4;i++){
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.05), winM);
+      win.position.set((Math.random()-0.5)*w*0.7, h*0.25+Math.random()*h*0.6, w/2+0.03);
+      g.add(win);
+    }
+  }
+  const makers = [makeTree, makeTree, makeTree, makeLamp, makeBall, makeBuilding];
+  for(const side of [-1, 1]){
+    for(let z=-150; z<20; z+=7+Math.random()*8){
+      const g = new THREE.Group();
+      makers[Math.floor(Math.random()*makers.length)](g);
+      g.position.set(side*(6 + Math.random()*3.5), 0, z);
+      world.add(g); scenery.push(g);
+    }
+  }
+}
+
+/* ================= 障碍 / 金币 ================= */
+const obstacles = [], coins3d = [];
+const matGreen  = new THREE.MeshLambertMaterial({ color: 0x35904d });
+const matGreenD = new THREE.MeshLambertMaterial({ color: 0x1f5f33 });
+const matRoof   = new THREE.MeshLambertMaterial({ color: 0xa9d8b4 });
+const matYellow = new THREE.MeshLambertMaterial({ color: 0xf2c94c });
+const matDark   = new THREE.MeshLambertMaterial({ color: 0x22262a });
+const matRed    = new THREE.MeshLambertMaterial({ color: 0xe04338 });
+const matWhite  = new THREE.MeshLambertMaterial({ color: 0xf2f2f0 });
+const matSteel  = new THREE.MeshLambertMaterial({ color: 0x79818f });
+const matGold   = new THREE.MeshLambertMaterial({ color: 0xf2c94c, emissive: 0x6b5200 });
+
+function makeTrain(lane){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.0, 8), matGreen);
+  body.position.y = 1.15; body.castShadow = true; g.add(body);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.18, 7.6), matRoof);
+  roof.position.y = 2.24; g.add(roof);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.94, 0.16, 7.8), matWhite);
+  belt.position.y = 1.62; g.add(belt);
+  const shield = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.62, 0.06), matDark);
+  shield.position.set(0, 1.72, 4.02); g.add(shield);
+  const lampM = new THREE.MeshLambertMaterial({ color: 0xfff2b0, emissive: 0x8a7a30 });
+  for(const s of [-1,1]){
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.11,8,6), lampM);
+    lamp.position.set(s*0.6, 0.75, 4.02); g.add(lamp);
+  }
+  const skirt = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 7.9), matDark);
+  skirt.position.y = 0.18; g.add(skirt);
+  g.position.set(LANE_X[lane], 0, -70);
+  return g;
+}
+function makeHurdle(lane){
+  const g = new THREE.Group();
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.35, 0.16), matRed);
+  bar.position.y = 0.55; bar.castShadow = true; g.add(bar);
+  for(let i=0;i<3;i++){
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.37, 0.18), matWhite);
+    w.position.set(-0.6+i*0.6, 0.55, 0); g.add(w);
+  }
+  for(const s of [-1,1]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.12), matSteel);
+    leg.position.set(s*0.85, 0.375, 0); g.add(leg);
+  }
+  g.position.set(LANE_X[lane], 0, -70);
+  return g;
+}
+function makeGantry(lane){
+  const g = new THREE.Group();
+  for(const s of [-1,1]){
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.85, 0.14), matSteel);
+    post.position.set(s*0.95, 0.925, 0); g.add(post);
+  }
+  const beam = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.55, 0.2), matYellow);
+  beam.position.y = 1.32; beam.castShadow = true; g.add(beam);
+  for(let i=0;i<4;i++){
+    const blk = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.57, 0.22), matDark);
+    blk.position.set(-0.78+i*0.52, 1.32, 0); blk.rotation.z = 0.5; g.add(blk);
+  }
+  g.position.set(LANE_X[lane], 0, -70);
+  return g;
+}
+function makeCoin(){
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.06, 18), matGold);
+  c.rotation.x = Math.PI/2; c.position.set(0, 1.0, -70);
+  return c;
+}
+
+/* ================= 主角 ================= */
+let playerObj = null, mixer = null, actRun = null;
+new THREE.GLTFLoader().load('models/soldier.glb', (gltf)=>{
+  playerObj = gltf.scene;
+  playerObj.rotation.y = Math.PI; // 背对镜头，朝 -Z 方向跑
+  playerObj.traverse(o=>{ if(o.isMesh){ o.castShadow = true; } });
+  scene.add(playerObj);
+  mixer = new THREE.AnimationMixer(playerObj);
+  for(const clip of gltf.animations){
+    if(/run/i.test(clip.name)){ actRun = mixer.clipAction(clip); }
+  }
+  if(actRun){ actRun.play(); }
+  const boot = document.getElementById('boot');
+  if(boot) boot.remove();
+}, undefined, ()=>{
+  const boot = document.getElementById('boot');
+  if(boot) boot.textContent = '模型加载失败，请刷新';
+});
+
+/* ================= 生成 ================= */
+function spawnRow(){
+  const z = -72;
+  if(Math.random()<0.24 && dist>120){
+    const free = Math.floor(Math.random()*3);
+    for(let l=0;l<3;l++) if(l!==free){
+      const t = makeTrain(l); world.add(t);
+      obstacles.push({ type:'train', lane:l, mesh:t, z:z, len:8 });
+    }
+    coinLine(free, z);
+  }else{
+    const n = dist<50 ? 1 : (Math.random()<0.55?1:2);
+    const lanes = [0,1,2].sort(()=>Math.random()-0.5);
+    const blocked = lanes.slice(0, n);
+    for(const l of blocked){
+      const isHigh = Math.random()<0.5;
+      const m = isHigh ? makeGantry(l) : makeHurdle(l);
+      world.add(m);
+      obstacles.push({ type:isHigh?'high':'low', lane:l, mesh:m, z:z, len:0.6 });
+    }
+    const freeL = [0,1,2].filter(l=>!blocked.includes(l));
+    if(Math.random()<0.7) coinLine(freeL[Math.floor(Math.random()*freeL.length)], z);
+  }
+}
+function coinLine(lane, z){
+  const n = 3+Math.floor(Math.random()*3);
+  for(let i=0;i<n;i++){
+    const c = makeCoin(); world.add(c);
+    coins3d.push({ lane, mesh:c, z:z+i*1.7, got:false });
+  }
+}
+
+/* ================= 粒子/飘字 ================= */
+let floats = [];
+function floatText(txt, color, big){
+  floats.push({ txt, color, big, t: 0, life: big?1.0:0.75,
+    x: innerWidth/2 + (Math.random()-0.5)*40, y: innerHeight*0.32 });
+}
+
+/* ================= 输入 ================= */
+function move(d){ if(mode==='play'&&!paused) player.lane = Math.max(0, Math.min(2, player.lane+d)); }
+function jump(){ if(mode==='play'&&!paused&&!player.air){ player.air=true; player.vy=7.4; player.slideT=0; sndJump(); } }
+function slide(){ if(mode==='play'&&!paused){ if(player.air) player.vy=Math.min(player.vy,-9); player.slideT=0.62; sndSlide(); } }
+addEventListener('keydown', e=>{
+  if(paused){ paused=false; pauseEl.classList.add('hidden'); bgmStart(); return; }
+  if(mode==='menu'){ if(e.key===' '||e.key==='Enter'||e.key==='ArrowUp'){ start(); e.preventDefault(); } return; }
+  if(mode==='over'){ if((e.key===' '||e.key==='Enter') && overT>0.8){ start(); e.preventDefault(); } return; }
+  switch(e.key){
+    case 'ArrowLeft': case 'a': case 'A': move(-1); e.preventDefault(); break;
+    case 'ArrowRight': case 'd': case 'D': move(1); e.preventDefault(); break;
+    case 'ArrowUp': case 'w': case 'W': case ' ': jump(); e.preventDefault(); break;
+    case 'ArrowDown': case 's': case 'S': slide(); e.preventDefault(); break;
+    case 'p': case 'P': paused=true; pauseEl.classList.remove('hidden'); bgmPause(); break;
+  }
+});
+let ts=null;
+cv.addEventListener('touchstart', e=>{
+  if(paused){ paused=false; pauseEl.classList.add('hidden'); bgmStart(); }
+  ts={x:e.touches[0].clientX, y:e.touches[0].clientY};
+},{passive:true});
+cv.addEventListener('touchend', e=>{
+  if(!ts) return;
+  const dx=e.changedTouches[0].clientX-ts.x, dy=e.changedTouches[0].clientY-ts.y;
+  if(Math.abs(dx)<24 && Math.abs(dy)<24){ if(mode==='play') jump(); }
+  else if(Math.abs(dx)>Math.abs(dy)) move(dx>0?1:-1);
+  else dy<0?jump():slide();
+  ts=null;
+},{passive:true});
+document.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+
+/* ================= UI ================= */
+const $=id=>document.getElementById(id);
+const menuEl=$('menu'), overEl=$('over'), hudEl=$('hud'), pauseEl=$('pause');
+let shakeCopy=false;
+
+function bgmStart(){ /* 3D 版用文件外链时静默失败即可 */ }
+function bgmPause(){}
+
+function refreshBest(){ $('bestLine').textContent = best>0 ? ('历史最佳：'+best+' 米') : '收集沿途金币，别撞上列车！'; }
+refreshBest();
+
+function start(){
+  mode='play'; paused=false; dist=0; coinsGot=0; speed=0; countdownT=2.2; runCried=false;
+  combo=0; comboT=0; maxCombo=0; gapLeft=12; nextMile=250; overT=0;
+  player.lane=1; player.x=0; player.y=0; player.vy=0; player.air=false; player.slideT=0; player.dead=false;
+  for(const o of obstacles) world.remove(o.mesh);
+  obstacles.length=0;
+  for(const c of coins3d) world.remove(c.mesh);
+  coins3d.length=0;
+  menuEl.classList.add('hidden'); overEl.classList.add('hidden'); hudEl.classList.remove('hidden');
+  ac(); sndUp();
+}
+$('startBtn').addEventListener('click', start);
+$('retryBtn').addEventListener('click', start);
+$('homeBtn').addEventListener('click', ()=>{
+  overEl.classList.add('hidden'); menuEl.classList.remove('hidden'); hudEl.classList.add('hidden');
+  mode='menu'; player.dead=false; refreshBest();
+});
+$('pauseBtn').addEventListener('click', ()=>{ if(mode==='play'&&!paused){ paused=true; pauseEl.classList.remove('hidden'); bgmPause(); } });
+$('muteBtn').addEventListener('click', function(){ muted=!muted; this.textContent = muted?'🔇':'🔊'; });
+pauseEl.addEventListener('click', ()=>{ paused=false; pauseEl.classList.add('hidden'); bgmStart(); });
+
+let newBest=false;
+function crash(){
+  mode='over'; overT=0; shakeT=0.4; flashT=0.35; sndCrash();
+  if(Math.floor(dist)>best){ best=Math.floor(dist); newBest=true; try{localStorage.setItem('kp3d_best',best);}catch(e){} }
+  else newBest=false;
+  setTimeout(showOver, 750);
+}
+function showOver(){
+  $('statLine').innerHTML='奔跑 <b style="color:#e5572f">'+Math.floor(dist)+'</b> 米 · 收获金币 <b style="color:#2e9e4f">'+coinsGot+'</b> 枚<br>最高连击 <b style="color:#7ee787">'+maxCombo+'</b> · 历史最佳：'+best+' 米';
+  $('newBest').classList.toggle('hidden', !newBest);
+  overEl.classList.remove('hidden');
+}
+
+/* ================= 更新 ================= */
+function crashNow(){ if(mode==='play') crash(); }
+
+function update(dt){
+  window.__uc=(window.__uc||0)+1;
+  window.__d3 = { dt: +dt.toFixed(4), mode, countdownT: +countdownT.toFixed(2), speed: +speed.toFixed(2), dist: Math.floor(dist), paused };
+  tGlobal+=dt;
+  if(shakeT>0)shakeT-=dt; if(flashT>0)flashT-=dt;
+  if(mixer) mixer.update(dt);
+  for(const f of floats) f.t+=dt;
+  floats=floats.filter(f=>f.t<f.life);
+
+  if(mode==='menu'){
+    player.phase=(player.phase||0)+dt*4;
+    return;
+  }
+  if(mode==='over'){ overT+=dt; return; }
+  if(mode!=='play') return;
+
+  if(countdownT>0){
+    countdownT-=dt;
+    player.x+=((player.lane-1)-player.x)*Math.min(1,dt*11);
+    if(!runCried && countdownT<=0.25){
+      runCried=true;
+      floatText('冲鸭！','#ffd54a',true); sndUp();
+    }
+    return;
+  }
+  comboT-=dt; if(comboT<=0){ comboT=0; combo=0; }
+
+  startT=(startT||0)+dt;
+  const target=Math.min(26, 11+dist*0.012);
+  speed=Math.min(target, speed+dt*7);
+  const dz=speed*dt;
+  dist+=dz;
+
+  // 玩家横向/纵向
+  player.x+=((player.lane-1)-player.x)*Math.min(1,dt*11);
+  if(player.air){
+    player.vy-=20*dt; player.y+=player.vy*dt;
+    if(player.y<=0){ player.y=0; player.vy=0; player.air=false; }
+  }
+  if(player.slideT>0) player.slideT-=dt;
+
+  // 障碍移动 / 碰撞
+  for(let i=obstacles.length-1;i>=0;i--){
+    const o=obstacles[i]; o.z+=dz; o.mesh.position.z=o.z;
+    if(o.z-(o.len||0.6)>6){ world.remove(o.mesh); obstacles.splice(i,1); continue; }
+    if(Math.abs((o.lane-1)-player.x)>0.6) continue;
+    if(o.type==='train'){
+      if(o.z>-0.5 && o.z-o.len<0.5){ crashNow(); return; }
+    }else if(Math.abs(o.z)<0.5){
+      if(o.type==='low'){ if(player.y<0.5){ crashNow(); return; } }
+      else { if(player.slideT<=0 && player.y<0.3){ crashNow(); return; } }
+    }
+  }
+  // 金币
+  for(let i=coins3d.length-1;i>=0;i--){
+    const c=coins3d[i]; c.z+=dz; c.mesh.position.z=c.z;
+    c.mesh.rotation.y+=dt*4;
+    c.mesh.position.y=1.0+Math.sin(tGlobal*3+i)*0.08;
+    if(c.z>6){ world.remove(c.mesh); coins3d.splice(i,1); continue; }
+    if(!c.got && Math.abs(c.z)<0.9 && Math.abs((c.lane-1)-player.x)<0.55 && player.y<1.1){
+      c.got=true; world.remove(c.mesh); coins3d.splice(i,1);
+      coinsGot++; sndCoin();
+      combo = comboT>0 ? combo+1 : 1; comboT=2.0; maxCombo=Math.max(maxCombo,combo);
+      if(combo>=3) floatText('连击 x'+combo, '#7ee787', false);
+    }
+  }
+  // 生成
+  gapLeft-=dz;
+  if(gapLeft<=0){ spawnRow(); gapLeft=9+Math.random()*4; }
+
+  // 里程碑
+  if(dist>nextMile){ nextMile+=250; floatText('提速！','#ff5722',true); sndUp(); }
+
+  // 换腿脚步灰尘提示（音效替代）
+  const stepNow=Math.floor((player.phase||0)/Math.PI);
+}
+
+/* ================= 渲染 ================= */
+function render(){
+  // 相机跟随
+  const camX=player.x*0.42, camY=2.35+player.y*0.28, camZ=4.6;
+  let sx=0, sy=0;
+  if(shakeT>0){ sx=(Math.random()-0.5)*0.25*shakeT*4; sy=(Math.random()-0.5)*0.2*shakeT*4; }
+  camera.position.set(camX+sx, camY+sy, camZ);
+  camera.lookAt(player.x*0.5, 1.05, -6);
+
+  // 主角
+  if(playerObj){
+    playerObj.position.set(player.x, player.y, 0);
+    playerObj.rotation.z = (player.lane-1-player.x)*-0.25;
+    if(player.slideT>0){
+      playerObj.scale.set(1.15, 0.5, 1.15);
+    }else if(player.air){
+      playerObj.scale.set(0.98, 1.06, 0.98);
+      playerObj.rotation.x = -0.12;
+    }else{
+      playerObj.scale.set(1,1,1);
+      playerObj.rotation.x = 0;
+    }
+    if(player.dead){
+      playerObj.rotation.x = Math.min(1.5, overT*4);
+      playerObj.rotation.y = Math.PI + Math.min(2.2, overT*3);
+    }
+  }
+
+  // 车道虚线后移
+  for(const d of dashes){
+    d.position.z += speed*0.016*60*0.016; // 占位（实际在 update 里统一移）
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ================= HUD 刷新 ================= */
+let lastDist=-1, lastPear=-1, lastCombo=-1;
+function refreshHud(){
+  const d=Math.floor(dist);
+  if(d!==lastDist){ lastDist=d; $('distV').textContent=d; }
+  if(coinsGot!==lastPear){ lastPear=coinsGot; $('pearV').textContent=coinsGot; }
+  const cc=$('comboChip');
+  if(combo>=3){ cc.style.display='flex'; $('comboV').textContent=combo; }
+  else cc.style.display='none';
+}
+
+/* ================= 倒计时绘制（2D 覆盖层） ================= */
+const cd2d=document.createElement('canvas');
+cd2d.style.cssText='position:fixed;inset:0;z-index:8;pointer-events:none;';
+document.body.appendChild(cd2d);
+function drawCountdown(){
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  cd2d.width=innerWidth*dpr; cd2d.height=innerHeight*dpr;
+  cd2d.style.width=innerWidth+'px'; cd2d.style.height=innerHeight+'px';
+  const g=cd2d.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,innerWidth,innerHeight);
+  // 飘字
+  for(const f of floats){
+    const p=f.t/f.life;
+    g.save(); g.globalAlpha=1-p;
+    g.font='900 '+((f.big?46:26)*(f.big?1:1)*(innerHeight/800+0.4))+'px "Microsoft YaHei",sans-serif';
+    g.textAlign='center'; g.textBaseline='middle';
+    g.lineWidth=5; g.strokeStyle='rgba(60,40,20,.5)';
+    g.strokeText(f.txt, f.x, f.y-p*50);
+    g.fillStyle=f.color; g.fillText(f.txt, f.x, f.y-p*50);
+    g.restore();
+  }
+  if(!(mode==='play'&&countdownT>0)) return;
+  const n=Math.ceil(countdownT-0.25), fr=(countdownT-0.25)%1;
+  g.textAlign='center'; g.textBaseline='middle';
+  if(n>0){
+    const s=(1+0.3*(1-fr))*Math.min(1.5,innerHeight/700);
+    g.globalAlpha=0.92; g.font='900 '+(120*s)+'px "Microsoft YaHei",sans-serif';
+    g.lineWidth=10; g.strokeStyle='rgba(60,40,20,.5)';
+    g.strokeText(n, innerWidth/2, innerHeight*0.3);
+    g.fillStyle='#ffd54a'; g.fillText(n, innerWidth/2, innerHeight*0.3);
+  }else{
+    g.globalAlpha=Math.min(1,0.3+fr*3);
+    g.font='900 '+(96*Math.min(1.5,innerHeight/700))+'px "Microsoft YaHei",sans-serif';
+    g.lineWidth=8; g.strokeStyle='rgba(60,40,20,.5)';
+    g.strokeText('跑!', innerWidth/2, innerHeight*0.3);
+    g.fillStyle='#7ee787'; g.fillText('跑!', innerWidth/2, innerHeight*0.3);
+  }
+}
+
+/* ================= 主循环 ================= */
+let lastT=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-lastT)/1000);
+  lastT=now;
+  window.__lc=(window.__lc||0)+1;
+  window.__st={paused, mode, countdownT: +countdownT.toFixed(2), speed: +speed.toFixed(2)};
+  if(!paused) update(dt);
+  // 世界滚动（统一在这里按速度移动）
+  let wdz=0;
+  if(mode==='play' && !paused && countdownT<=0) wdz=speed*dt;
+  else if(mode==='menu') wdz=1.8*dt;
+  if(wdz>0){
+    for(const d of dashes){
+      d.position.z+=wdz;
+      if(d.position.z>18) d.position.z-=168;
+    }
+    for(const sc of scenery){
+      sc.position.z+=wdz;
+      if(sc.position.z>25) sc.position.z-=175;
+    }
+  }
+  render();
+  drawCountdown();
+  if(mode==='play') refreshHud();
+  requestAnimationFrame(loop);
+}
+
+resize();
+requestAnimationFrame(loop);
+
+// 调试钩子（自动化测试用）
+window.__k3 = {
+  get state(){ return {mode, dist:Math.floor(dist), coins:coinsGot, speed:+speed.toFixed(1)}; },
+  tick(n){ for(let i=0;i<(n||1);i++) update(1/60); render(); },
+  train(lane, z){
+    const t = makeTrain(lane===undefined?0:lane);
+    t.position.z = z===undefined?-24:t.position.z + (z||-24) - t.position.z;
+    world.add(t);
+    obstacles.push({ type:'train', lane:lane===undefined?0:lane, mesh:t, z:t.position.z, len:8 });
+  }
+};
+
+// 首帧后移除加载提示
+const bootEl=document.getElementById('boot');
+const bootCheck=setInterval(()=>{
+  if(playerObj){ bootEl?.remove(); clearInterval(bootCheck); }
+}, 300);
+</script>
+</body>
+</html>
