@@ -75,7 +75,6 @@
     <h1 class="title">开心跑酷</h1>
     <p class="sub">真人出镜 · 手握双梨 · 像地铁跑酷一样狂奔</p>
     <div id="charRow">
-      <button class="charBtn" data-c="boy">🧢 原版小哥</button>
       <button class="charBtn" data-c="girl">👧 长发女生</button>
       <button class="charBtn" data-c="boy2">🤓 眼镜小哥</button>
       <button class="charBtn" data-c="girl2">👩 马尾女生</button>
@@ -405,6 +404,25 @@ function drawGround(){
   rg.addColorStop(0,'#8d939c'); rg.addColorStop(0.3,'#676c75'); rg.addColorStop(1,'#54585f');
   poly(ctx,[[xA(-1.5,0),yA(0)],[xA(-1.5,ZMAX),yA(ZMAX)],[xA(1.5,ZMAX),yA(ZMAX)],[xA(1.5,0),yA(0)]]);
   ctx.fillStyle=rg; ctx.fill();
+  // 列车逼近预警：玩家车道上有迎面列车时红色闪烁
+  (function drawLaneWarning(){
+    if(mode!=='play') return;
+    const pl=Math.round(player.x);
+    const danger=obstacles.some(o=>o.type==='train' && o.lane-1===pl && o.z>-2 && o.z<30);
+    if(!danger) return;
+    const a=0.15+0.10*Math.sin(tGlobal*9);
+    const lf=pl;
+    ctx.save();
+    ctx.fillStyle='rgba(255,60,40,'+a.toFixed(3)+')';
+    poly(ctx,[[xA(lf-0.46,1.5),yA(1.5)],[xA(lf+0.46,1.5),yA(1.5)],[xA(lf+0.46,42),yA(42)],[xA(lf-0.46,42),yA(42)]]);
+    ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,'+(0.75+0.25*Math.sin(tGlobal*9)).toFixed(3)+')';
+    ctx.font='900 '+Math.round(U*0.16)+'px "Microsoft YaHei",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('⚠ 换道!', xA(lf, 30), yA(30)-U*0.1);
+    ctx.restore();
+  })();
+
   // 车道虚线
   ctx.fillStyle='rgba(255,255,255,.85)';
   const off=dist%1.6;
